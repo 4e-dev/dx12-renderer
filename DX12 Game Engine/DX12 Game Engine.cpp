@@ -8,7 +8,12 @@
 #include <windows.h>
 #include <wrl.h>
 
-HINSTANCE gInstance;
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
+
+HINSTANCE gInstance = nullptr;
+HWND gWindowHandle = nullptr;
+
 constexpr WCHAR title[] = L"Asset Loader";
 constexpr WCHAR windowClass[] = L"MainWindow";
 
