@@ -12,6 +12,9 @@
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 
+//
+// Global structure stores generael information about the main Win32 application.
+//
 struct Global {
     HINSTANCE instance  = nullptr;
     HWND windowHandle   = nullptr;
@@ -23,10 +26,26 @@ struct Global {
 
 Global g = {};
 
-LRESULT CALLBACK WindowProcess(HWND, UINT, WPARAM, LPARAM);
-BOOL RegisterWndClass();
-BOOL CreateWindowHandle(int commandShow);
+//
+// Other global variables
+//
+UINT gCurrentBackBufferIndex    = 0;
+UINT gDsvDescriptorSize         = 0;
+UINT gRtvDescriptorSize         = 0;
+UINT64 gCurrentFence            = 0;
+constexpr INT SwapChainCount    = 2;
 
+//
+// Forward declarations
+//
+BOOL CreateWindowHandle(int commandShow);
+BOOL RegisterWndClass();
+LRESULT CALLBACK WindowProcess(HWND, UINT, WPARAM, LPARAM);
+void ThrowIfFailed(HRESULT result);
+
+//
+// COM pointers for D3D12 and DXGI
+//
 Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      gCommandAllocator;
 Microsoft::WRL::ComPtr<ID3D12CommandQueue>          gCommandQueue;
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gDepthStencilViewHeap;
@@ -34,25 +53,13 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gRenderTargetViewHeap;
 Microsoft::WRL::ComPtr<ID3D12Device>                gDevice;
 Microsoft::WRL::ComPtr<ID3D12Fence>                 gFence;
 Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   gCommandList;
-Microsoft::WRL::ComPtr<IDXGIFactory4>               gDxgiFactory;
-
-constexpr INT SwapChainCount  = 2;
 Microsoft::WRL::ComPtr<ID3D12Resource>              gSwapChainBuffers[SwapChainBufferCount];
+Microsoft::WRL::ComPtr<IDXGIFactory4>               gDxgiFactory;
 Microsoft::WRL::ComPtr<IDXGISwapChain>              gSwapChain;
 
-UINT gCurrentBackBufferIndex = 0;
-UINT gDsvDescriptorSize = 0;
-UINT gRtvDescriptorSize = 0;
-UINT64 gCurrentFence = 0;
-
-void ThrowIfFailed(HRESULT result)
-{
-    if (FAILED(result))
-    {
-        throw std::runtime_error("HRESULT failed");
-    }
-}
-
+//
+// App entry point
+//
 int APIENTRY wWinMain(
     _In_        HINSTANCE hInstance,
     _In_opt_    HINSTANCE previousInstance,
@@ -82,6 +89,14 @@ int APIENTRY wWinMain(
     return (int) message.wParam;
 }
 
+void ThrowIfFailed(HRESULT result)
+{
+    if (FAILED(result))
+    {
+        throw std::runtime_error("HRESULT failed");
+    }
+}
+
 BOOL RegisterWndClass() {
     WNDCLASSEXW wndClass = {
         sizeof(WNDCLASSEX),
@@ -95,8 +110,7 @@ BOOL RegisterWndClass() {
         (HBRUSH)(COLOR_WINDOW+1),
         NULL,
         g.windowClass,
-        NULL
-    };
+        NULL};
 
     if (RegisterClassExW(&wndClass) == 0)
         return false;
@@ -107,9 +121,17 @@ BOOL RegisterWndClass() {
 BOOL CreateWindowHandle(const int commandShow)
 {
     HWND windowHandle = CreateWindowW(
-        g.windowClass, g.title, WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, 0, CW_USEDEFAULT,
-        0, nullptr, nullptr, g.instance, nullptr);
+        g.windowClass,
+        g.title,
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT,
+        0,
+        CW_USEDEFAULT,
+        0,
+        nullptr,
+        nullptr,
+        g.instance,
+        nullptr);
 
     if (!windowHandle)
         return false;
