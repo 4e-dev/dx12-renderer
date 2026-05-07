@@ -44,6 +44,23 @@ LRESULT CALLBACK WindowProcess(HWND, UINT, WPARAM, LPARAM);
 void ThrowIfFailed(HRESULT result);
 
 //
+// (Forward decl cont) DX12 Setup, helper functions, and draw function.
+//
+void CreateDevice();
+void CreateCommandObjects();
+void CreateSwapChain();
+void CreateDescriptorHeaps();
+void CreateFence();
+void FlushCommandQueue();
+BOOL InitD3D12(); 
+
+ID3D12Resource* CurrentBackBuffer();
+D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView();
+D3D12_RESOURCE_BARRIER CreateTransitionBarrier();
+
+void Draw();
+
+//
 // COM pointers for D3D12 and DXGI
 //
 Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      gCommandAllocator;
@@ -53,7 +70,7 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gRenderTargetViewHeap;
 Microsoft::WRL::ComPtr<ID3D12Device>                gDevice;
 Microsoft::WRL::ComPtr<ID3D12Fence>                 gFence;
 Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   gCommandList;
-Microsoft::WRL::ComPtr<ID3D12Resource>              gSwapChainBuffers[SwapChainBufferCount];
+Microsoft::WRL::ComPtr<ID3D12Resource>              gSwapChainBuffers[SwapChainCount];
 Microsoft::WRL::ComPtr<IDXGIFactory4>               gDxgiFactory;
 Microsoft::WRL::ComPtr<IDXGISwapChain>              gSwapChain;
 
