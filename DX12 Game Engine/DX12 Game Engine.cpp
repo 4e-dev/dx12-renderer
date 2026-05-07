@@ -2,6 +2,11 @@
 #include "resource.h"
 
 #include <cstdlib>
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <stdexcept>
+#include <windows.h>
+#include <wrl.h>
 
 HINSTANCE gInstance;
 constexpr WCHAR title[] = L"Asset Loader";
