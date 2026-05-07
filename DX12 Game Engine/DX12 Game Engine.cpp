@@ -18,6 +18,8 @@ constexpr WCHAR title[] = L"Asset Loader";
 constexpr WCHAR windowClass[] = L"MainWindow";
 
 LRESULT CALLBACK WindowProcess(HWND, UINT, WPARAM, LPARAM);
+BOOL RegisterWndClass();
+BOOL CreateWindowHandle(int commandShow);
 
 int APIENTRY wWinMain(
     _In_        HINSTANCE hInstance,
@@ -25,38 +27,16 @@ int APIENTRY wWinMain(
     _In_        LPWSTR commandLine,
     _In_        int commandShow)
 {
+    // Register global variables
+    gInstance = hInstance;
+
     // Register a new window
-    WNDCLASSEXW wndClass = {};
-
-	wndClass.cbSize = sizeof(WNDCLASSEX);
-	wndClass.style = CS_VREDRAW | CS_HREDRAW; // redraw upon resizes
-	wndClass.lpfnWndProc = WindowProcess;
-	wndClass.cbClsExtra = 0;
-	wndClass.cbWndExtra = 0;
-	wndClass.hInstance = hInstance;
-	wndClass.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-	wndClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	wndClass.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
-	wndClass.lpszMenuName = NULL;
-	wndClass.lpszClassName = windowClass;
-	wndClass.hIconSm = NULL;
-
-    if (RegisterClassExW(&wndClass) == 0)
+    if (!RegisterWndClass())
         return EXIT_FAILURE;
 
     // Create the main window
-    gInstance = hInstance;
-
-    HWND windowHandle = CreateWindowW(
-        windowClass, title, WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, 0, CW_USEDEFAULT,
-        0, nullptr, nullptr, hInstance, nullptr);
-
-    if (!windowHandle)
+    if (!CreateWindowHandle(commandShow))
         return EXIT_FAILURE;
-
-    ShowWindow(windowHandle, commandShow);
-    UpdateWindow(windowHandle);
 
     // Main message loop:
     MSG message;
@@ -66,6 +46,44 @@ int APIENTRY wWinMain(
         DispatchMessage(&message);
     }
     return (int) message.wParam;
+}
+
+BOOL RegisterWndClass() {
+    WNDCLASSEXW wndClass = {};
+
+	wndClass.cbSize = sizeof(WNDCLASSEX);
+	wndClass.style = CS_VREDRAW | CS_HREDRAW;
+	wndClass.lpfnWndProc = WindowProcess;
+	wndClass.cbClsExtra = 0;
+	wndClass.cbWndExtra = 0;
+	wndClass.hInstance = gInstance;
+	wndClass.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+	wndClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	wndClass.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
+	wndClass.lpszMenuName = NULL;
+	wndClass.lpszClassName = windowClass;
+	wndClass.hIconSm = NULL;
+
+    if (RegisterClassExW(&wndClass) == 0)
+        return false;
+
+    return true;
+}
+
+BOOL CreateWindowHandle(const int commandShow) {
+    HWND windowHandle = CreateWindowW(
+        windowClass, title, WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, 0, CW_USEDEFAULT,
+        0, nullptr, nullptr, gInstance, nullptr);
+
+    if (!windowHandle)
+        return false;
+
+    gWindowHandle = windowHandle;
+    ShowWindow(gWindowHandle, commandShow);
+    UpdateWindow(gWindowHandle);
+
+    return true;
 }
 
 LRESULT CALLBACK WindowProcess(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam)
