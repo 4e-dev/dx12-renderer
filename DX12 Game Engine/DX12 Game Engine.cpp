@@ -45,6 +45,14 @@ UINT gDsvDescriptorSize = 0;
 UINT gRtvDescriptorSize = 0;
 UINT64 gCurrentFence = 0;
 
+void ThrowIfFailed(HRESULT result)
+{
+    if (FAILED(result))
+    {
+        throw std::runtime_error("HRESULT failed");
+    }
+}
+
 int APIENTRY wWinMain(
     _In_        HINSTANCE hInstance,
     _In_opt_    HINSTANCE previousInstance,
