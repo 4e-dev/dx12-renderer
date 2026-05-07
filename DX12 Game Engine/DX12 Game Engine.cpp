@@ -5,17 +5,28 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <stdexcept>
+#include <string>
 #include <windows.h>
 #include <wrl.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 
-HINSTANCE gInstance = nullptr;
-HWND gWindowHandle = nullptr;
+struct Global {
+    HINSTANCE instance  = nullptr;
+    HWND windowHandle   = nullptr;
+    INT Height          = 1920;
+    INT SwapChainCount  = 2;
+    INT Width           = 1080;
+    WCHAR* title;
+    WCHAR* windowClass;
+};
 
-constexpr WCHAR title[] = L"Asset Loader";
-constexpr WCHAR windowClass[] = L"MainWindow";
+Global g = {};
+
+//WCHAR title[]       = L"Asset Loader";
+//WCHAR windowClass[] = L"MainWindow";
+
 
 LRESULT CALLBACK WindowProcess(HWND, UINT, WPARAM, LPARAM);
 BOOL RegisterWndClass();
@@ -28,7 +39,9 @@ int APIENTRY wWinMain(
     _In_        int commandShow)
 {
     // Register global variables
-    gInstance = hInstance;
+    g.instance = hInstance;
+    g.title = (WCHAR*) L"Asset Loader";
+    g.windowClass = (WCHAR*) L"MainWindow";
 
     // Register a new window
     if (!RegisterWndClass())
@@ -49,20 +62,20 @@ int APIENTRY wWinMain(
 }
 
 BOOL RegisterWndClass() {
-    WNDCLASSEXW wndClass = {};
-
-	wndClass.cbSize = sizeof(WNDCLASSEX);
-	wndClass.style = CS_VREDRAW | CS_HREDRAW;
-	wndClass.lpfnWndProc = WindowProcess;
-	wndClass.cbClsExtra = 0;
-	wndClass.cbWndExtra = 0;
-	wndClass.hInstance = gInstance;
-	wndClass.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-	wndClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	wndClass.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
-	wndClass.lpszMenuName = NULL;
-	wndClass.lpszClassName = windowClass;
-	wndClass.hIconSm = NULL;
+    WNDCLASSEXW wndClass = {
+        sizeof(WNDCLASSEX),
+        CS_VREDRAW | CS_HREDRAW,
+        WindowProcess,
+        0,
+        0,
+        g.instance,
+        LoadIcon(nullptr, IDI_APPLICATION),
+        LoadCursor(nullptr, IDC_ARROW),
+        (HBRUSH)(COLOR_WINDOW+1),
+        NULL,
+        g.windowClass,
+        NULL
+    };
 
     if (RegisterClassExW(&wndClass) == 0)
         return false;
@@ -70,18 +83,19 @@ BOOL RegisterWndClass() {
     return true;
 }
 
-BOOL CreateWindowHandle(const int commandShow) {
+BOOL CreateWindowHandle(const int commandShow)
+{
     HWND windowHandle = CreateWindowW(
-        windowClass, title, WS_OVERLAPPEDWINDOW,
+        g.windowClass, g.title, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT,
-        0, nullptr, nullptr, gInstance, nullptr);
+        0, nullptr, nullptr, g.instance, nullptr);
 
     if (!windowHandle)
         return false;
 
-    gWindowHandle = windowHandle;
-    ShowWindow(gWindowHandle, commandShow);
-    UpdateWindow(gWindowHandle);
+    g.windowHandle = windowHandle;
+    ShowWindow(g.windowHandle, commandShow);
+    UpdateWindow(g.windowHandle);
 
     return true;
 }
