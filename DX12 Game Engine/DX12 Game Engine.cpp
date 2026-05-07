@@ -16,7 +16,6 @@ struct Global {
     HINSTANCE instance  = nullptr;
     HWND windowHandle   = nullptr;
     INT Height          = 1920;
-    INT SwapChainCount  = 2;
     INT Width           = 1080;
     WCHAR* title;
     WCHAR* windowClass;
@@ -24,13 +23,27 @@ struct Global {
 
 Global g = {};
 
-//WCHAR title[]       = L"Asset Loader";
-//WCHAR windowClass[] = L"MainWindow";
-
-
 LRESULT CALLBACK WindowProcess(HWND, UINT, WPARAM, LPARAM);
 BOOL RegisterWndClass();
 BOOL CreateWindowHandle(int commandShow);
+
+Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      gCommandAllocator;
+Microsoft::WRL::ComPtr<ID3D12CommandQueue>          gCommandQueue;
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gDepthStencilViewHeap;
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gRenderTargetViewHeap;
+Microsoft::WRL::ComPtr<ID3D12Device>                gDevice;
+Microsoft::WRL::ComPtr<ID3D12Fence>                 gFence;
+Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   gCommandList;
+Microsoft::WRL::ComPtr<IDXGIFactory4>               gDxgiFactory;
+
+constexpr INT SwapChainCount  = 2;
+Microsoft::WRL::ComPtr<ID3D12Resource>              gSwapChainBuffers[SwapChainBufferCount];
+Microsoft::WRL::ComPtr<IDXGISwapChain>              gSwapChain;
+
+UINT gCurrentBackBufferIndex = 0;
+UINT gDsvDescriptorSize = 0;
+UINT gRtvDescriptorSize = 0;
+UINT64 gCurrentFence = 0;
 
 int APIENTRY wWinMain(
     _In_        HINSTANCE hInstance,
