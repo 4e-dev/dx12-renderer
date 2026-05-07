@@ -132,7 +132,16 @@ LRESULT CALLBACK WindowProcess(HWND windowHandle, UINT message, WPARAM wParam, L
         EndPaint(windowHandle, &ps);
     }
     else if (message == WM_DESTROY)
+    {
         PostQuitMessage(0);
+    }
+    else if (message == WM_KEYDOWN)
+    {
+        if (wParam == VK_ESCAPE) // TODO: temporary; escape will pause the game
+        {
+            PostQuitMessage(0);
+        }
+    }
 
 	return DefWindowProc(windowHandle, message, wParam, lParam);
 }
