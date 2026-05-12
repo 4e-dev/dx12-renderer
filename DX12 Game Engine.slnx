@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="DX12 Game Engine/DX12 Game Engine.vcxproj" />
+  <Project Path="DX12 Game Engine/DX12 Game Engine.vcxproj" Id="3d181cc9-ec27-4578-afa7-1b0483047e65" />
 </Solution>
