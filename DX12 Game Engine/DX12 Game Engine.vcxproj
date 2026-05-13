@@ -127,20 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="DX12 Game Engine.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="targetver.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="DX12 Game Engine.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="DX12 Game Engine.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="DX12 Game Engine.ico" />
-    <Image Include="small.ico" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
