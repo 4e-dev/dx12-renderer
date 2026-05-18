@@ -1,5 +1,3 @@
-#define WIN32_LEAN_AND_MEAN
-
 #include <windows.h>
 #include <wrl.h>
 
@@ -25,6 +23,9 @@ HWND gWindowHandle = nullptr;
 
 int gWidth = 1920;
 int gHeight = 1080;
+
+bool gPaused = false; // stops rendering if true
+bool gMinimized = false; // only referenced in WM_SIZE
 
 UINT gCurrentBackBuffer = 0;
 
@@ -77,13 +78,13 @@ D3D12_RESOURCE_BARRIER TransitionBarrier(
 {
     D3D12_RESOURCE_BARRIER barrier = {};
 
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Type    = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags   = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 
-    barrier.Transition.pResource = resource;
-    barrier.Transition.StateBefore = before;
-    barrier.Transition.StateAfter = after;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    barrier.Transition.pResource    = resource;
+    barrier.Transition.StateBefore  = before;
+    barrier.Transition.StateAfter   = after;
+    barrier.Transition.Subresource  = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
     return barrier;
 }
@@ -110,27 +111,62 @@ void Draw();
 //
 // Window procedure
 //
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    switch (msg)
+    switch (message)
     {
-    case WM_KEYDOWN:
-    {
-        if (wParam == VK_ESCAPE)
-        {
-            PostQuitMessage(0);
-        }
-        return 0;
+        case WM_KEYDOWN: // Key being pressed
+            {
+                if (wParam == VK_ESCAPE)
+                {
+                    PostQuitMessage(0);
+                }
+                return 0;
+            }
+        case WM_DESTROY: // Destroy window
+            {
+                PostQuitMessage(0);
+                return 0;
+            }
+        case WM_CLOSE: // Pressing the close ('X') button
+            {
+                DestroyWindow(window);
+                return 0;
+            }
+        case WM_SIZE: // Window is resized
+            {
+                gWidth = LOWORD(lParam);
+                gHeight = HIWORD(lParam);
+
+                if (gDevice)
+                {
+                    if (wParam == SIZE_MINIMIZED)
+                    {
+                        // No rendering when minimized!
+                        gPaused = true;
+                        gMinimized = true;
+                    }
+                    else if (wParam == SIZE_MAXIMIZED)
+                    {
+                        gPaused = false;
+                        gMinimized = false;
+                        OnResize();
+                    }
+                    else if (wParam == SIZE_RESTORED)
+                    {
+                        // Ordinary window state (non-maximized, non-minimized)
+                        if (gMinimized)
+                        {
+                            gPaused = false;
+                            gMinimized = false;
+                            OnResize();
+                        }
+                    }
+                }
+            }
     }
 
-    case WM_DESTROY:
-    {
-        PostQuitMessage(0);
-        return 0;
-    }
-    }
-
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+    return DefWindowProc(window, message, wParam, lParam);
 }
 
 //
@@ -226,7 +262,10 @@ int APIENTRY wWinMain(
         }
         else
         {
-            Draw();
+            if (!gPaused)
+            {
+                Draw();
+            }
         }
     }
 
@@ -261,6 +300,7 @@ void CreateDevice()
 
     if (FAILED(hardwareResult))
     {
+        // Fall back to WARP (software rasterizer)
         ComPtr<IDXGIAdapter> warpAdapter;
 
         ThrowIfFailed(
@@ -474,6 +514,9 @@ void OnResize()
 
     FlushCommandQueue();
 
+    //
+    // Reset command list
+    //
     ThrowIfFailed(
         gCommandList->Reset(
             gCommandAllocator.Get(),
@@ -483,9 +526,7 @@ void OnResize()
     // Release old buffers
     //
     for (UINT i = 0; i < SwapChainBufferCount; ++i)
-    {
         gSwapChainBuffers[i].Reset();
-    }
 
     gDepthStencilBuffer.Reset();
 
@@ -527,7 +568,6 @@ void OnResize()
     // Create depth/stencil buffer
     //
     D3D12_RESOURCE_DESC depthDesc = {};
-
     depthDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     depthDesc.Alignment = 0;
     depthDesc.Width = gWidth;
@@ -546,7 +586,6 @@ void OnResize()
     clearValue.DepthStencil.Stencil = 0;
 
     D3D12_HEAP_PROPERTIES heapProperties = {};
-
     heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
     heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
     heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
