@@ -111,7 +111,7 @@ void CreateCommandObjects();
 void CreateSwapChain();
 void CreateDescriptorHeaps();
 
-void FlushCommandQueue();
+void WaitForGPU();
 void OnResize();
 
 void Draw();
@@ -277,7 +277,7 @@ int APIENTRY wWinMain(
         }
     }
 
-    FlushCommandQueue();
+    WaitForGPU();
 
     return static_cast<int>(message.wParam);
 }
@@ -483,7 +483,7 @@ void CreateDescriptorHeaps()
 //
 // GPU synchronization
 //
-void FlushCommandQueue()
+void WaitForGPU()
 {
     ++gCurrentFence;
 
@@ -492,7 +492,7 @@ void FlushCommandQueue()
             gFence.Get(),
             gCurrentFence));
 
-    if (gFence->GetCompletedValue() < gCurrentFence)
+    if (gFence->GetCompletedValue() < gCurrentFence) // GPU not done yet
     {
         HANDLE eventHandle = CreateEventEx(
             nullptr,
@@ -500,11 +500,13 @@ void FlushCommandQueue()
             false,
             EVENT_ALL_ACCESS);
 
+        // Wake until fence reaches current value or higher
         ThrowIfFailed(
             gFence->SetEventOnCompletion(
                 gCurrentFence,
                 eventHandle));
 
+        // CPU goes to sleep while GPU keeps working
         WaitForSingleObject(eventHandle, INFINITE);
 
         CloseHandle(eventHandle);
@@ -520,7 +522,7 @@ void OnResize()
     assert(gSwapChain);
     assert(gCommandAllocator);
 
-    FlushCommandQueue();
+    WaitForGPU();
 
     //
     // Reset command list
@@ -573,7 +575,7 @@ void OnResize()
     }
 
     //
-    // Create depth/stencil buffer
+    // Create depth/stencil (DSV) buffer
     //
     D3D12_RESOURCE_DESC depthDesc = {};
     depthDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -636,6 +638,7 @@ void OnResize()
     };
 
     gCommandQueue->ExecuteCommandLists(1, cmdsLists);
+    WaitForGPU();
 
     FlushCommandQueue();
 
