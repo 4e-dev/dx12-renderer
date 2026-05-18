@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <wrl.h>
+#include <debugapi.h>
 
 #include <cassert>
 #include <cstdlib>
@@ -10,6 +11,13 @@
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+
+#define LOGF(...)                   \
+{                                   \
+    char buffer[512];               \
+    sprintf_s(buffer, __VA_ARGS__); \
+    OutputDebugStringA(buffer);     \
+}                                   \
 
 using Microsoft::WRL::ComPtr;
 
