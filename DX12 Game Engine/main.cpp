@@ -418,7 +418,7 @@ void CreateSwapChain()
 
     swapChainDesc.BufferDesc.Width = gWidth;
     swapChainDesc.BufferDesc.Height = gHeight;
-    swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
+    swapChainDesc.BufferDesc.RefreshRate.Numerator = 120;
     swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
     swapChainDesc.BufferDesc.Format = gBackBufferFormat;
     swapChainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
@@ -508,7 +508,6 @@ void WaitForGPU()
 
         // CPU goes to sleep while GPU keeps working
         WaitForSingleObject(eventHandle, INFINITE);
-
         CloseHandle(eventHandle);
     }
 }
@@ -537,7 +536,6 @@ void OnResize()
     //
     for (UINT i = 0; i < SwapChainBufferCount; ++i)
         gSwapChainBuffers[i].Reset();
-
     gDepthStencilBuffer.Reset();
 
     //
@@ -550,7 +548,6 @@ void OnResize()
             gHeight,
             gBackBufferFormat,
             DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
-
     gCurrentBackBuffer = 0;
 
     //
@@ -629,35 +626,27 @@ void OnResize()
             D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
     gCommandList->ResourceBarrier(1, &depthBarrier);
-
     ThrowIfFailed(gCommandList->Close());
-
-    ID3D12CommandList* cmdsLists[] =
-    {
-        gCommandList.Get()
-    };
-
+    ID3D12CommandList* cmdsLists[] = { gCommandList.Get() };
     gCommandQueue->ExecuteCommandLists(1, cmdsLists);
     WaitForGPU();
-
-    FlushCommandQueue();
 
     //
     // Viewport
     //
-    gViewport.TopLeftX = 0;
-    gViewport.TopLeftY = 0;
-    gViewport.Width = static_cast<float>(gWidth);
-    gViewport.Height = static_cast<float>(gHeight);
-    gViewport.MinDepth = 0.0f;
-    gViewport.MaxDepth = 1.0f;
+    gViewport.TopLeftX  = 0;
+    gViewport.TopLeftY  = 0;
+    gViewport.Width     = static_cast<float>(gWidth);
+    gViewport.Height    = static_cast<float>(gHeight);
+    gViewport.MinDepth  = 0.0f;
+    gViewport.MaxDepth  = 1.0f;
 
     //
     // Scissor rect
     //
-    gScissorRect.left = 0;
-    gScissorRect.top = 0;
-    gScissorRect.right = gWidth;
+    gScissorRect.left   = 0;
+    gScissorRect.top    = 0;
+    gScissorRect.right  = gWidth;
     gScissorRect.bottom = gHeight;
 }
 
@@ -689,6 +678,9 @@ D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()
 //
 void Draw()
 {
+    //
+    // Reset command allocator and command list
+    //
     ThrowIfFailed(
         gCommandAllocator->Reset());
 
@@ -698,7 +690,7 @@ void Draw()
             nullptr));
 
     //
-    // Set viewport + scissor
+    // Set viewport + scissor rectangle
     //
     gCommandList->RSSetViewports(1, &gViewport);
     gCommandList->RSSetScissorRects(1, &gScissorRect);
@@ -715,17 +707,10 @@ void Draw()
     gCommandList->ResourceBarrier(1, &toRenderTarget);
 
     //
-    // Get RTV + DSV handles
-    //
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv =
-        CurrentBackBufferView();
-
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv =
-        DepthStencilView();
-
-    //
     // Bind render targets
     //
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = CurrentBackBufferView();
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv = DepthStencilView();
     gCommandList->OMSetRenderTargets(
         1,
         &rtv,
@@ -742,7 +727,6 @@ void Draw()
         0.4f,
         1.0f
     };
-
     gCommandList->ClearRenderTargetView(
         rtv,
         clearColor,
@@ -768,29 +752,21 @@ void Draw()
             CurrentBackBuffer(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
             D3D12_RESOURCE_STATE_PRESENT);
-
     gCommandList->ResourceBarrier(1, &toPresent);
 
-    ThrowIfFailed(
-        gCommandList->Close());
+    //
+    // Send commands to GPU
+    //
+    ThrowIfFailed(gCommandList->Close());
+    ID3D12CommandList* commandLists[] = { gCommandList.Get() };
+    gCommandQueue->ExecuteCommandLists(1, commandLists);
 
-    ID3D12CommandList* commandLists[] =
-    {
-        gCommandList.Get()
-    };
-
-    gCommandQueue->ExecuteCommandLists(
-        1,
-        commandLists);
-
+    //
+    // Present backbuffer
+    //
     ThrowIfFailed(
         gSwapChain->Present(1, 0));
+    gCurrentBackBuffer = (gCurrentBackBuffer + 1) % SwapChainBufferCount;
 
-    //
-    // Advance back buffer
-    //
-    gCurrentBackBuffer =
-        (gCurrentBackBuffer + 1) % SwapChainBufferCount;
-
-    FlushCommandQueue();
+    WaitForGPU();
 }
