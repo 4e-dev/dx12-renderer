@@ -16,14 +16,14 @@ public:
     void Tick();
 
 private:
-    double secondsPerCount;
-    double deltaTime;
+    double mSecondsPerCount;
+    double mDeltaTime;
 
-    __int64 baseTime;
-    __int64 pausedTime;
-    __int64 stopTime;
-    __int64 previousTime;
-    __int64 currentTime;
+    __int64 mBaseTime;
+    __int64 mPausedTime;
+    __int64 mStopTime;
+    __int64 mPreviousTime;
+    __int64 mCurrentTime;
 
-    bool stopped;
+    bool mStopped;
 };
