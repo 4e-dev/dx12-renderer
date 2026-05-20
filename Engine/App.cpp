@@ -1,25 +1,18 @@
 #include <windows.h>
 #include <wrl.h>
 #include <debugapi.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
 
 #include <cassert>
 #include <cstdlib>
 #include <stdexcept>
 
-#include <d3d12.h>
-#include <dxgi1_6.h>
+#include "Core/Debug.h"
+#include "Core/Exceptions.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
-
-#define LOGF(...)                   \
-{                                   \
-    char buffer[512];               \
-    sprintf_s(buffer, __VA_ARGS__); \
-    OutputDebugStringA(buffer);     \
-}                                   \
-
-using Microsoft::WRL::ComPtr;
 
 constexpr UINT SwapChainBufferCount = 2;
 
@@ -52,21 +45,21 @@ D3D12_RECT gScissorRect = {};
 //
 // DX12 objects
 //
-ComPtr<IDXGIFactory4>               gDxgiFactory;
-ComPtr<ID3D12Device>                gDevice;
-ComPtr<ID3D12Fence>                 gFence;
+Microsoft::WRL::ComPtr<IDXGIFactory4>               gDxgiFactory;
+Microsoft::WRL::ComPtr<ID3D12Device>                gDevice;
+Microsoft::WRL::ComPtr<ID3D12Fence>                 gFence;
 
-ComPtr<ID3D12CommandQueue>          gCommandQueue;
-ComPtr<ID3D12CommandAllocator>      gCommandAllocator;
-ComPtr<ID3D12GraphicsCommandList>   gCommandList;
+Microsoft::WRL::ComPtr<ID3D12CommandQueue>          gCommandQueue;
+Microsoft::WRL::ComPtr<ID3D12CommandAllocator>      gCommandAllocator;
+Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   gCommandList;
 
-ComPtr<IDXGISwapChain>              gSwapChain;
+Microsoft::WRL::ComPtr<IDXGISwapChain>              gSwapChain;
 
-ComPtr<ID3D12DescriptorHeap>        gRtvHeap;
-ComPtr<ID3D12DescriptorHeap>        gDsvHeap;
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gRtvHeap;
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gDsvHeap;
 
-ComPtr<ID3D12Resource>              gSwapChainBuffers[SwapChainBufferCount];
-ComPtr<ID3D12Resource>              gDepthStencilBuffer;
+Microsoft::WRL::ComPtr<ID3D12Resource>              gSwapChainBuffers[SwapChainBufferCount];
+Microsoft::WRL::ComPtr<ID3D12Resource>              gDepthStencilBuffer;
 
 //
 // Helpers
@@ -101,6 +94,8 @@ D3D12_RESOURCE_BARRIER TransitionBarrier(
 // Forward declarations
 //
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+void InitWin32(int commandShow);
 
 void CreateDevice();
 void CreateFence();
@@ -189,47 +184,22 @@ int APIENTRY wWinMain(
     gInstance = hInstance;
 
     //
-    // Register window class
+    // Initialize Win32
     //
-    WNDCLASSEXW wc = {};
-
-    wc.cbSize           = sizeof(WNDCLASSEXW);
-    wc.style            = CS_HREDRAW | CS_VREDRAW;
-    wc.lpfnWndProc      = WindowProc;
-    wc.hInstance        = gInstance;
-    wc.hIcon            = LoadIcon(nullptr, IDI_APPLICATION);
-    wc.hCursor          = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground    = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszClassName    = L"D3D12WindowClass";
-
-    if (!RegisterClassExW(&wc))
+    try
     {
+        InitWin32(commandShow);
+    }
+    catch (const Core::win32_error& e)
+    {
+        MessageBoxA(
+            nullptr,
+            "Failed to initialize Win32",
+            "Error",
+            MB_OK);
+
         return EXIT_FAILURE;
     }
-
-    //
-    // Create window
-    //
-    gWindowHandle = CreateWindowW(
-        L"D3D12WindowClass",
-        L"D3D12 Renderer",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        gWidth,
-        gHeight,
-        nullptr,
-        nullptr,
-        gInstance,
-        nullptr);
-
-    if (!gWindowHandle)
-    {
-        return EXIT_FAILURE;
-    }
-
-    ShowWindow(gWindowHandle, commandShow);
-    UpdateWindow(gWindowHandle);
 
     //
     // Initialize D3D12
@@ -283,13 +253,65 @@ int APIENTRY wWinMain(
 }
 
 //
+// Window class registration and creation
+//
+void InitWin32(int commandShow)
+{
+    constexpr wchar_t className[] = L"D3D12WindowClass"; 
+    constexpr wchar_t windowName[] = L"D3D12 Renderer"; 
+
+    //
+    // Register window class
+    //
+    WNDCLASSEXW wc = {};
+
+    wc.cbSize           = sizeof(WNDCLASSEXW);
+    wc.style            = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc      = WindowProc;
+    wc.hInstance        = gInstance;
+    wc.hIcon            = LoadIcon(nullptr, IDI_APPLICATION);
+    wc.hCursor          = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground    = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszClassName    = className;
+
+    if (!RegisterClassExW(&wc))
+    {
+        throw Core::win32_error("Unable to register class");
+    }
+
+    //
+    // Create window
+    //
+    gWindowHandle = CreateWindowW(
+        className,
+        windowName,
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        gWidth,
+        gHeight,
+        nullptr,
+        nullptr,
+        gInstance,
+        nullptr);
+
+    if (!gWindowHandle)
+    {
+        throw Core::win32_error("Unable to create a Window");
+    }
+
+    ShowWindow(gWindowHandle, commandShow);
+    UpdateWindow(gWindowHandle);
+}
+
+//
 // Device
 //
 void CreateDevice()
 {
 #if defined(DEBUG) || defined(_DEBUG)
     {
-        ComPtr<ID3D12Debug> debugController;
+        Microsoft::WRL::ComPtr<ID3D12Debug> debugController;
 
         if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
         {
@@ -309,7 +331,7 @@ void CreateDevice()
     if (FAILED(hardwareResult))
     {
         // Fall back to WARP (software rasterizer)
-        ComPtr<IDXGIAdapter> warpAdapter;
+        Microsoft::WRL::ComPtr<IDXGIAdapter> warpAdapter;
 
         ThrowIfFailed(
             gDxgiFactory->EnumWarpAdapter(
