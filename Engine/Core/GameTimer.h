@@ -7,8 +7,8 @@ class GameTimer
 public:
     GameTimer();
 
-    float GameTime() const;
-    float DeltaTime() const;
+    double TotalTime() const;
+    double DeltaTime() const;
 
     void Reset();
     void Start();
@@ -16,14 +16,14 @@ public:
     void Tick();
 
 private:
-    double mSecondsPerCount;
-    double mDeltaTime;
+    double mSecondsPerTick;
+    double mDeltaSeconds;
 
-    __int64 mBaseTime;
-    __int64 mPausedTime;
-    __int64 mStopTime;
-    __int64 mPreviousTime;
-    __int64 mCurrentTime;
+    __int64 mBaseTick;
+    __int64 mPausedTicks;
+    __int64 mStopTick;
+    __int64 mPreviousTick;
+    __int64 mCurrentTick;
 
     bool mStopped;
 };
