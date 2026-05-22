@@ -1,6 +1,6 @@
-#include "GameTimer.h"
+#include "Timer.h"
 
-GameTimer::GameTimer()
+Timer::Timer()
 {
     // Initialize values
     mSecondsPerTick     =  0.0;
@@ -13,44 +13,48 @@ GameTimer::GameTimer()
     mStopped            = false;
 
     // Calculate the number of seconds that happen per 'Count'
-    __int64 ticksPerSecond;
-    QueryPerformanceCounter((LARGE_INTEGER*)&ticksPerSecond);
-    mSecondsPerTick = 1.0 / (double)ticksPerSecond;
+    __int64 _ticksPerSecond;
+    QueryPerformanceCounter((LARGE_INTEGER*)&_ticksPerSecond);
+    mSecondsPerTick = 1.0 / (double)_ticksPerSecond;
 }
 
-double GameTimer::TotalTime() const { return -1.0; }
+double Timer::TotalTime() const
+{
+    return -1.0;
+}
 
-double GameTimer::DeltaTime() const
+double Timer::DeltaTime() const
 {
     return mDeltaSeconds;
 }
 
-void GameTimer::Reset() {}
+void Timer::Reset() {}
 
-void GameTimer::Start() {}
+void Timer::Start() {}
 
-void GameTimer::Stop() {}
+void Timer::Stop() {}
 
-void GameTimer::Tick()
+void Timer::Tick()
 {
+    // Game is paused/minimized. Do not advance frame time.
     if (mStopped)
     {
         mDeltaSeconds = 0.0;
         return;
     }
 
-    // Get time for this frame
+    // Get current tick-count.
     __int64 _currentTime;
     QueryPerformanceCounter((LARGE_INTEGER*)&_currentTime);
     mCurrentTick = _currentTime;
      
-    // Calculate delta (time between this frame and the previous frame, in seconds)
+    // Calculate time elapsed since previous frame.
     __int64 _deltaTicks = mCurrentTick - mPreviousTick;
-    mDeltaSeconds = _deltaTicks * mSecondsPerTick; // convert
+    mDeltaSeconds = _deltaTicks * mSecondsPerTick;
 
-    // Prepare for next frame
+    // Prepare next frame.
     mPreviousTick = mCurrentTick;
 
-    // Force nonnegative
+    // Force nonnegative.
     mDeltaSeconds = max(mDeltaSeconds, 0.0);
 }

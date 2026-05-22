@@ -112,6 +112,88 @@ void OnResize();
 void Draw();
 
 //
+// Entry point
+//
+int APIENTRY wWinMain(
+    HINSTANCE hInstance,
+    HINSTANCE,
+    LPWSTR,
+    int commandShow)
+{
+    gInstance = hInstance;
+
+    //
+    // Initialize Win32
+    //
+    try
+    {
+        InitWin32(commandShow);
+    }
+    catch (const Core::win32_error& e)
+    {
+        MessageBoxA(
+            nullptr,
+            "Failed to initialize Win32",
+            "Error",
+            MB_OK);
+
+        return EXIT_FAILURE;
+    }
+
+    //
+    // Initialize D3D12
+    //
+    try
+    {
+        CreateDevice();
+        CreateFence();
+        GetDescriptorSizes();
+        CheckMsaaSupport();
+        CreateCommandObjects();
+        CreateSwapChain();
+        CreateDescriptorHeaps();
+        OnResize();
+    }
+    catch (...)
+    {
+        MessageBoxA(
+            nullptr,
+            "Failed to initialize D3D12.",
+            "Error",
+            MB_OK);
+
+        return EXIT_FAILURE;
+    }
+
+    //
+    // MAIN LOOP
+    //
+    MSG message = {};
+
+    while (message.message != WM_QUIT)
+    {
+        // Process messages
+        if (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&message);
+            DispatchMessage(&message);
+        }
+        // Otherwise, do animation/game stuff here
+        else
+        {
+            if (!gPaused)
+            {
+                Draw();
+            }
+        }
+    }
+
+    WaitForGPU();
+
+    return static_cast<int>(message.wParam);
+}
+
+//
 // Window procedure
 //
 LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
@@ -170,86 +252,6 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
     }
 
     return DefWindowProc(window, message, wParam, lParam);
-}
-
-//
-// Entry point
-//
-int APIENTRY wWinMain(
-    HINSTANCE hInstance,
-    HINSTANCE,
-    LPWSTR,
-    int commandShow)
-{
-    gInstance = hInstance;
-
-    //
-    // Initialize Win32
-    //
-    try
-    {
-        InitWin32(commandShow);
-    }
-    catch (const Core::win32_error& e)
-    {
-        MessageBoxA(
-            nullptr,
-            "Failed to initialize Win32",
-            "Error",
-            MB_OK);
-
-        return EXIT_FAILURE;
-    }
-
-    //
-    // Initialize D3D12
-    //
-    try
-    {
-        CreateDevice();
-        CreateFence();
-        GetDescriptorSizes();
-        CheckMsaaSupport();
-        CreateCommandObjects();
-        CreateSwapChain();
-        CreateDescriptorHeaps();
-        OnResize();
-    }
-    catch (...)
-    {
-        MessageBoxA(
-            nullptr,
-            "Failed to initialize D3D12.",
-            "Error",
-            MB_OK);
-
-        return EXIT_FAILURE;
-    }
-
-    //
-    // Main loop
-    //
-    MSG message = {};
-
-    while (message.message != WM_QUIT)
-    {
-        if (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
-        {
-            TranslateMessage(&message);
-            DispatchMessage(&message);
-        }
-        else
-        {
-            if (!gPaused)
-            {
-                Draw();
-            }
-        }
-    }
-
-    WaitForGPU();
-
-    return static_cast<int>(message.wParam);
 }
 
 //

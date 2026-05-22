@@ -2,10 +2,10 @@
 
 #include <windows.h>
 
-class GameTimer
+class Timer
 {
 public:
-    GameTimer();
+    Timer();
 
     double TotalTime() const;
     double DeltaTime() const;
@@ -13,6 +13,8 @@ public:
     void Reset();
     void Start();
     void Stop();
+
+    // Calculate the time elapsed between the previous frame (0, at first) and the current frame (now).
     void Tick();
 
 private:
