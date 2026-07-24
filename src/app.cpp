@@ -8,13 +8,14 @@
 #include <cstdlib>
 #include <stdexcept>
 
-#include "Core/Debug.h"
-#include "Core/Exceptions.h"
+#include "core/debug.h"
+#include "core/exceptions.h"
+#include "core/timer.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 
-constexpr UINT SwapChainBufferCount = 2;
+constexpr UINT SWAP_CHAIN_BUFFER_COUNT = 2;
 
 //
 // Globals
@@ -25,7 +26,7 @@ HWND gWindowHandle = nullptr;
 int gWidth = 1920;
 int gHeight = 1080;
 
-bool gPaused = false; // stops rendering if true
+bool gAppPaused = false; // stops rendering if true
 bool gMinimized = false; // only referenced in WM_SIZE
 
 UINT gCurrentBackBuffer = 0;
@@ -41,6 +42,8 @@ DXGI_FORMAT gDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
 D3D12_VIEWPORT gViewport = {};
 D3D12_RECT gScissorRect = {};
+
+Timer gTimer = Timer();
 
 //
 // DX12 objects
@@ -58,7 +61,7 @@ Microsoft::WRL::ComPtr<IDXGISwapChain>              gSwapChain;
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gRtvHeap;
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        gDsvHeap;
 
-Microsoft::WRL::ComPtr<ID3D12Resource>              gSwapChainBuffers[SwapChainBufferCount];
+Microsoft::WRL::ComPtr<ID3D12Resource>              gSwapChainBuffers[SWAP_CHAIN_BUFFER_COUNT];
 Microsoft::WRL::ComPtr<ID3D12Resource>              gDepthStencilBuffer;
 
 //
@@ -168,7 +171,9 @@ int APIENTRY wWinMain(
     //
     // MAIN LOOP
     //
-    MSG message = {};
+    MSG message = {0};
+
+    gTimer.Reset();
 
     while (message.message != WM_QUIT)
     {
@@ -181,7 +186,9 @@ int APIENTRY wWinMain(
         // Otherwise, do animation/game stuff here
         else
         {
-            if (!gPaused)
+            gTimer.Tick();
+
+            if (!gAppPaused)
             {
                 Draw();
             }
@@ -228,12 +235,12 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                     if (wParam == SIZE_MINIMIZED)
                     {
                         // No rendering when minimized!
-                        gPaused = true;
+                        gAppPaused = true;
                         gMinimized = true;
                     }
                     else if (wParam == SIZE_MAXIMIZED)
                     {
-                        gPaused = false;
+                        gAppPaused = false;
                         gMinimized = false;
                         OnResize();
                     }
@@ -242,7 +249,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
                         // Ordinary window state (non-maximized, non-minimized)
                         if (gMinimized)
                         {
-                            gPaused = false;
+                            gAppPaused = false;
                             gMinimized = false;
                             OnResize();
                         }
@@ -455,7 +462,7 @@ void CreateSwapChain()
     swapChainDesc.SampleDesc.Quality = 0;
 
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.BufferCount = SwapChainBufferCount;
+    swapChainDesc.BufferCount = SWAP_CHAIN_BUFFER_COUNT;
     swapChainDesc.OutputWindow = gWindowHandle;
     swapChainDesc.Windowed = true;
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
@@ -478,7 +485,7 @@ void CreateDescriptorHeaps()
     //
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
 
-    rtvHeapDesc.NumDescriptors = SwapChainBufferCount;
+    rtvHeapDesc.NumDescriptors = SWAP_CHAIN_BUFFER_COUNT;
     rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     rtvHeapDesc.NodeMask = 0;
@@ -558,7 +565,7 @@ void OnResize()
     //
     // Release old buffers
     //
-    for (UINT i = 0; i < SwapChainBufferCount; ++i)
+    for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
         gSwapChainBuffers[i].Reset();
     gDepthStencilBuffer.Reset();
 
@@ -567,7 +574,7 @@ void OnResize()
     //
     ThrowIfFailed(
         gSwapChain->ResizeBuffers(
-            SwapChainBufferCount,
+            SWAP_CHAIN_BUFFER_COUNT,
             gWidth,
             gHeight,
             gBackBufferFormat,
@@ -580,7 +587,7 @@ void OnResize()
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle =
         gRtvHeap->GetCPUDescriptorHandleForHeapStart();
 
-    for (UINT i = 0; i < SwapChainBufferCount; ++i)
+    for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
     {
         ThrowIfFailed(
             gSwapChain->GetBuffer(
@@ -790,7 +797,14 @@ void Draw()
     //
     ThrowIfFailed(
         gSwapChain->Present(1, 0));
-    gCurrentBackBuffer = (gCurrentBackBuffer + 1) % SwapChainBufferCount;
+    gCurrentBackBuffer = (gCurrentBackBuffer + 1) % SWAP_CHAIN_BUFFER_COUNT;
 
     WaitForGPU();
 }
+
+/*
+Log:
+
+7/21/2026
+My mental health is deteriorating. I do not know when I will ever finish this project.
+*/

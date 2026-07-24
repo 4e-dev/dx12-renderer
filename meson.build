@@ -1,35 +1,28 @@
 project(
-  'App',
+  'app',
   'cpp',
   default_options : [
-    'cpp_std=c++latest',
+    'cpp_std=c++20',
     'warning_level=1',
-    'buildtype=debug'
+    'buildtype=debug',
+    'backend=vs'
   ]
 )
 
-cpp = meson.get_compiler('cpp')
+source_files = files('src/app.cpp')
+includes = include_directories('src')
 
-source_files = files(
-  'Engine/App.cpp'
-)
-
-includes = include_directories(
-  'Engine'
-)
-
-d3d12_lib = cpp.find_library('d3d12')
-dxgi_lib = cpp.find_library('dxgi')
-dxguid_lib = cpp.find_library('dxguid')
+compiler = meson.get_compiler('cpp')
+depnames = ['d3d12', 'dxgi', 'dxguid']
+deps = []
+foreach dep : depnames
+  deps += compiler.find_library(dep)
+endforeach
 
 executable(
-  'App',
+  'app',
   source_files,
   include_directories : includes,
-  dependencies : [
-    d3d12_lib,
-    dxgi_lib,
-    dxguid_lib
-  ],
+  dependencies : deps,
   win_subsystem : 'windows'
 )
