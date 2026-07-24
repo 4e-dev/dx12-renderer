@@ -20,7 +20,7 @@ pip install meson ninja
 Generate the Visual Studio solution:
 
 ```powershell
-meson setup Build --backend=vs
+meson setup build --backend=vs
 ```
 
 ### Build & Run
@@ -28,7 +28,7 @@ meson setup Build --backend=vs
 Open the generated solution in:
 
 ```text
-Build/
+build/
 ```
 
 Then build/run through Visual Studio (`F5`).
@@ -38,11 +38,11 @@ Then build/run through Visual Studio (`F5`).
 If `meson.build` changes:
 
 ```powershell
-meson setup build-vs --reconfigure
+meson setup build --reconfigure
 ```
 
 If the build configuration becomes inconsistent:
 
 ```powershell
-meson setup build-vs --wipe --backend=vs
+meson setup build --wipe --backend=vs
 ```
