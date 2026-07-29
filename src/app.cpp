@@ -1,14 +1,5 @@
-#include <windows.h>
-#include <winuser.h>
-#include <wrl.h>
-#include <debugapi.h>
-#include <d3d12.h>
-#include <dxgi1_6.h>
-
-#include <cassert>
-#include <cstdlib>
-#include <print>
-#include <stdexcept>
+#include "app.h"
+#include "debug/debug.h"
 
 #define SWAP_CHAIN_BUFFER_COUNT 2
 #define DEPTH_STENCIL_BUFFER_COUNT 1
@@ -778,13 +769,4 @@ D3D12_RESOURCE_BARRIER TransitionBarrier(
     barrier.Transition = transition;
 
     return barrier;
-}
-
-//
-// Helper functions
-//
-void ThrowIfFailed(HRESULT result) {
-    if (FAILED(result)) {
-        throw std::runtime_error("HRESULT failed.");
-    }
 }
