@@ -46,3 +46,7 @@ If the build configuration becomes inconsistent:
 ```powershell
 meson setup build --wipe --backend=vs
 ```
+Otherwise run `rebuild.bat`, which automatically runs the prior command
+
+### LSP for neovim
+
