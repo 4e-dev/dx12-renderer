@@ -1,15 +1,15 @@
 # Build directories
-builddir/
+build/
+build-ninja/
 build-vs/
-Build/
 x64/
 
 # Visual Studio
-.vs/
-*.user
-*.suo
 *.VC.db
 *.VC.opendb
+*.suo
+*.user
+.vs/
 
 # Generated VS files
 *.sln
@@ -17,16 +17,16 @@ x64/
 *.vcxproj.filters
 
 # Build artifacts
+*.exe
+*.exp
+*.ilk
+*.lib
 *.obj
 *.pdb
-*.ilk
-*.exe
-*.lib
-*.exp
 
 # Ninja
-.ninja_log
 .ninja_deps
+.ninja_log
 
 # OS junk
 .DS_Store
