@@ -34,3 +34,4 @@ Thumbs.db
 
 # Editor junk
 .swp
+compile_commands.json
