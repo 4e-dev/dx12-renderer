@@ -1,22 +1,24 @@
-project(
-  'app',
-  'cpp',
-  default_options : [
-    'cpp_std=c++23',
+project('dx12-game', 'cpp',
+  version: '1.0',
+  license: [ 'MIT' ],
+  default_options: [
     'warning_level=1',
-    'buildtype=debug',
-    'backend=vs'
-  ]
-)
-
-source_files = files('src/app.cpp')
-includes = include_directories('src')
+    'buildtype=debug'])
 
 compiler = meson.get_compiler('cpp')
-dependency_names = ['d3d12', 'dxgi', 'dxguid']
+
+source_files = files(
+  'src/app.cpp',
+  'src/debug/debug.cpp')
+
+includes = include_directories(
+  'src/',
+  'src/core/',
+  'src/debug/')
+
 dependencies = []
-foreach dependency : dependency_names
-  dependencies += compiler.find_library(dependency)
+foreach dependency : ['d3d12', 'dxgi', 'dxguid']
+  dependencies += compiler.find_library(dependency, required : true)
 endforeach
 
 executable(
@@ -24,5 +26,4 @@ executable(
   source_files,
   include_directories : includes,
   dependencies : dependencies,
-  win_subsystem : 'windows'
-)
+  win_subsystem : 'windows')

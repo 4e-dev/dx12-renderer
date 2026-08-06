@@ -11,3 +11,4 @@
 #include <cstdlib>
 #include <print>
 #include <stdexcept>
+#include <ranges>

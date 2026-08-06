@@ -3,7 +3,7 @@
 :::::::::::::::::::::::::::::::::::::::::
 
 @echo off
-meson setup build-ninja --wipe --backend=ninja
+meson setup build-ninja --wipe --backend=ninja -Dcpp_std=c++23
 
 :: Ensure `compile_commands.json` exists.
 if exist "build-ninja\compile_commands.json" (

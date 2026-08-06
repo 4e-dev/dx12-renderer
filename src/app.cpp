@@ -1,4 +1,4 @@
-#include "app.h"
+#include "./app.h"
 #include "debug/debug.h"
 
 #define SWAP_CHAIN_BUFFER_COUNT 2
@@ -40,8 +40,8 @@ namespace RenderTarget {
 }
 
 namespace SwapChain {
-    ComPtr<IDXGISwapChain> Chain;
     ComPtr<ID3D12Resource> Buffers[SWAP_CHAIN_BUFFER_COUNT];
+    ComPtr<IDXGISwapChain> Chain;
 }
 
 namespace Window {
@@ -63,21 +63,16 @@ LRESULT CALLBACK WindowProc(
     HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 HWND CreateWindowHandle();
-void CreateDevice(const D3D_FEATURE_LEVEL minimumFeatureLevel);
-void CreateFence();
-void GetDescriptorSizes();
 void CheckMsaaSupport();
 void CreateCommandObjects();
-void CreateSwapChain();
 void CreateDescriptorHeaps();
-void WaitForGPU();
-void OnResize();
+void CreateDevice(const D3D_FEATURE_LEVEL minimum_feature_level);
+void CreateFence();
+void CreateSwapChain();
 void Draw();
-
-//
-// Helper function declarations
-//
-void ThrowIfFailed(HRESULT result);
+void GetDescriptorSizes();
+void OnResize();
+void FlushQueue();
 
 //
 // Entry point
@@ -97,14 +92,18 @@ int APIENTRY wWinMain(
     ShowWindow(Window::Handle, commandShow);
     UpdateWindow(Window::Handle);
 
+    // Create the DX12 Factory.
+    ThrowIfFailed(
+        CreateDXGIFactory1(IID_PPV_ARGS(&DX12::Factory)));
+
+    #if defined(DEBUG) || defined(_DEBUG)
+        LogAdapters(DX12::Factory);
+    #endif
+ 
     //
     // Initialize D3D12
     //
-    try
-    {
-        ThrowIfFailed(
-            CreateDXGIFactory1(IID_PPV_ARGS(&DX12::Factory)));
-
+    try {
         CreateDevice(D3D_FEATURE_LEVEL_11_0);
         CreateFence();
         GetDescriptorSizes();
@@ -113,9 +112,7 @@ int APIENTRY wWinMain(
         CreateSwapChain();
         CreateDescriptorHeaps();
         OnResize();
-    }
-    catch (...)
-    {
+    } catch (...) {
         MessageBoxA(
             nullptr,
             "Failed to initialize D3D12.",
@@ -129,97 +126,73 @@ int APIENTRY wWinMain(
     // MAIN LOOP
     //
     MSG message = {0};
-
-    while (message.message != WM_QUIT)
-    {
+    while (message.message != WM_QUIT) {
         // Process messages
-        if (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
-        {
+        if (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE)) {
             TranslateMessage(&message);
             DispatchMessage(&message);
             continue;
         }
         // Render game
-        else if (!Window::Paused)
-        {
+        else if (!Window::Paused) {
             Draw();
         }
     }
-
-    WaitForGPU();
+    FlushQueue();
     return static_cast<int>(message.wParam);
 }
 
 //
 // Window procedure
 //
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (uMsg)
-    {
-        // Pressing the 'X' button
-        case WM_CLOSE:
-        {
-            DestroyWindow(hWnd);
-            return 0;
-        }
-        // Destroy window
-        case WM_DESTROY:
-        {
+LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+    case WM_CLOSE: { // Pressing the 'X' button
+        DestroyWindow(hWnd); // Sends a WM_DESTROY message.
+        break;
+    }
+    case WM_DESTROY: { // Destroy window
+        PostQuitMessage(0); // Calls WM_QUIT
+        break;
+    }
+    case WM_KEYDOWN: { // Key being pressed
+        if (wParam == VK_ESCAPE) {
             PostQuitMessage(0);
-            return 0;
         }
-        // Key being pressed
-        case WM_KEYDOWN:
-        {
-            if (wParam == VK_ESCAPE)
-            {
-                PostQuitMessage(0);
-            }
-            return 0;
-        }
-        // Window is resized.
-        case WM_SIZE:
-        {
-            Window::Width = LOWORD(lParam);
-            Window::Height = HIWORD(lParam);
+        return 0;
+    }
+    case WM_SIZE: { // Window is resized.
+        Window::Width = LOWORD(lParam);
+        Window::Height = HIWORD(lParam);
 
-            if (DX12::Device)
-            {
-                // Do not render when minimized.
-                if (wParam == SIZE_MINIMIZED)
-                {
-                    Window::Paused = true;
-                    Window::Minimized = true;
-                }
-                else if (wParam == SIZE_MAXIMIZED)
-                {
-                    Window::Paused = false;
+        if (DX12::Device) {
+            // Do not render when minimized.
+            if (wParam == SIZE_MINIMIZED) {
+                Window::Minimized = true;
+                Window::Paused = true;
+            }
+            else if (wParam == SIZE_MAXIMIZED) {
+                Window::Minimized = false;
+                Window::Paused = false;
+                OnResize();
+            }
+            else if (wParam == SIZE_RESTORED) {
+                // The ordinary window state (non-maximized, non-minimized).
+                if (Window::Minimized) {
                     Window::Minimized = false;
+                    Window::Paused = false;
                     OnResize();
                 }
-                else if (wParam == SIZE_RESTORED)
-                {
-                    // The ordinary window state (non-maximized, non-minimized).
-                    if (Window::Minimized)
-                    {
-                        Window::Paused = false;
-                        Window::Minimized= false;
-                        OnResize();
-                    }
-                }
             }
         }
-    }
-
+    }}
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
 //
 // Creates a win32 window class and registers it.
 //
-HWND CreateWindowHandle()
-{
+HWND CreateWindowHandle() {
     //
     // Register the window class.
     //
@@ -270,38 +243,36 @@ HWND CreateWindowHandle()
 //
 // Device
 //
-void CreateDevice(const D3D_FEATURE_LEVEL minimumFeatureLevel)
-{
-#if defined(DEBUG) || defined(_DEBUG)
-{
-    Microsoft::WRL::ComPtr<ID3D12Debug> debugController;
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
-        debugController->EnableDebugLayer();
-}
-#endif
-    HRESULT hardwareResult = D3D12CreateDevice(
+void CreateDevice(const D3D_FEATURE_LEVEL minimum_feature_level) {
+
+    #if defined(DEBUG) || defined(_DEBUG)
+        {
+        Microsoft::WRL::ComPtr<ID3D12Debug> debug_controller;
+        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller))))
+            debug_controller->EnableDebugLayer();
+        }
+    #endif
+
+    HRESULT hardware_result = D3D12CreateDevice(
         nullptr,
-        minimumFeatureLevel,
+        minimum_feature_level,
         IID_PPV_ARGS(&DX12::Device));
 
     // Fall back to WARP (software rasterizer)
-    if (FAILED(hardwareResult))
-    {
-        Microsoft::WRL::ComPtr<IDXGIAdapter> warpAdapter;
+    if (FAILED(hardware_result)) {
+        Microsoft::WRL::ComPtr<IDXGIAdapter> warp_adapter;
         ThrowIfFailed(
-            DX12::Factory->EnumWarpAdapter(
-                IID_PPV_ARGS(&warpAdapter)));
+            DX12::Factory->EnumWarpAdapter(IID_PPV_ARGS(&warp_adapter)));
 
         ThrowIfFailed(
             D3D12CreateDevice(
-                warpAdapter.Get(),
+                warp_adapter.Get(),
                 D3D_FEATURE_LEVEL_11_0,
                 IID_PPV_ARGS(&DX12::Device)));
     }
 }
 
-void CreateFence()
-{
+void CreateFence() {
     ThrowIfFailed(
         DX12::Device->CreateFence(
             0,
@@ -309,8 +280,7 @@ void CreateFence()
             IID_PPV_ARGS(&DX12::Fence)));
 }
 
-void GetDescriptorSizes()
-{
+void GetDescriptorSizes() {
     Descriptor::RtvSize =
         DX12::Device->GetDescriptorHandleIncrementSize(
             D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -324,13 +294,14 @@ void GetDescriptorSizes()
             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
-void CheckMsaaSupport()
-{
+void CheckMsaaSupport() {
     D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msaaQuality = {};
 
-    
+    // NOTE(bao): Eventually, I want the user to be able to select
+    // their desired MSAA (multi-sampling) quality.
+    // For now, we `disable` MSAA by setting SampleCount to 1 and NumQualityLevels to 0...
     msaaQuality.Format              = Graphics::BackBufferFormat;
-    msaaQuality.SampleCount         = 4;
+    msaaQuality.SampleCount         = 1;
     msaaQuality.Flags               = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
     msaaQuality.NumQualityLevels    = 0;
 
@@ -344,11 +315,8 @@ void CheckMsaaSupport()
 //
 // Command objects
 //
-void CreateCommandObjects()
-{
-    //
-    // Command queue
-    //
+void CreateCommandObjects() {
+    // Create command queue.
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -359,17 +327,13 @@ void CreateCommandObjects()
             &queueDesc,
             IID_PPV_ARGS(&DX12::CommandQueue)));
 
-    //
-    // Command allocator
-    //
+    // Create command allocator.
     ThrowIfFailed(
         DX12::Device->CreateCommandAllocator(
             D3D12_COMMAND_LIST_TYPE_DIRECT,
             IID_PPV_ARGS(&DX12::CommandAllocator)));
 
-    //
-    // Command list
-    //
+    // Create command list.
     ThrowIfFailed(
         DX12::Device->CreateCommandList(
             0,
@@ -378,9 +342,7 @@ void CreateCommandObjects()
             nullptr,
             IID_PPV_ARGS(&DX12::CommandList)));
 
-    //
-    // Close immediately
-    //
+    // To prevent accidental command recording, close immediately.
     ThrowIfFailed(
         DX12::CommandList->Close());
 }
@@ -388,8 +350,7 @@ void CreateCommandObjects()
 //
 // Swap chain
 //
-void CreateSwapChain()
-{
+void CreateSwapChain() {
     SwapChain::Chain.Reset();
 
     DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
@@ -424,8 +385,7 @@ void CreateSwapChain()
 //
 // Descriptor heaps
 //
-void CreateDescriptorHeaps()
-{
+void CreateDescriptorHeaps() {
     //
     // RTV (render target view) heap
     //
@@ -460,45 +420,45 @@ void CreateDescriptorHeaps()
 //
 // GPU synchronization
 //
-void WaitForGPU()
-{
-    ++Frame::CurrentFence;
+void FlushQueue() {
+    ++(Frame::CurrentFence);
 
     ThrowIfFailed(
         DX12::CommandQueue->Signal(
             DX12::Fence.Get(),
             Frame::CurrentFence));
 
-    if (DX12::Fence->GetCompletedValue() < Frame::CurrentFence) // GPU not done yet
-    {
-        HANDLE eventHandle = CreateEventEx(
-            nullptr,
-            nullptr,
-            false,
-            EVENT_ALL_ACCESS);
-
-        // Wake until fence reaches current value or higher
-        ThrowIfFailed(
-            DX12::Fence->SetEventOnCompletion(
-                Frame::CurrentFence,
-                eventHandle));
-
-        // Put CPU to sleep while GPU catches up
-        WaitForSingleObject(eventHandle, INFINITE);
-        CloseHandle(eventHandle);
+    bool gpu_is_lagging_behind = DX12::Fence->GetCompletedValue() < Frame::CurrentFence;
+    if (!gpu_is_lagging_behind) {
+        return;
     }
+
+    HANDLE event_handle = CreateEventEx(
+        nullptr,
+        nullptr,
+        false,
+        EVENT_ALL_ACCESS);
+
+    // Wake until fence reaches current value or higher.
+    ThrowIfFailed(
+        DX12::Fence->SetEventOnCompletion(
+            Frame::CurrentFence,
+            event_handle));
+
+    // Put CPU to sleep while GPU catches up.
+    WaitForSingleObject(event_handle, INFINITE);
+    CloseHandle(event_handle);
 }
 
 //
 // Resize + RTV/DSV creation
 //
-void OnResize()
-{
-    assert(DX12::CommandAllocator);
+void OnResize() {
     assert(DX12::Device);
+    assert(DX12::CommandAllocator);
     assert(SwapChain::Chain);
 
-    WaitForGPU();
+    FlushQueue();
 
     //
     // Reset command list
@@ -511,9 +471,8 @@ void OnResize()
     //
     // Release old buffers
     //
-    for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i) {
+    for (UINT i : std::views::iota(0, SWAP_CHAIN_BUFFER_COUNT))
         SwapChain::Buffers[i].Reset();
-    }
     RenderTarget::DepthStencilBuffer.Reset();
 
     //
@@ -532,11 +491,10 @@ void OnResize()
     //
     // Create RTVs
     //
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle =
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle =
         RenderTarget::RtvHeap->GetCPUDescriptorHandleForHeapStart();
 
-    for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
-    {
+    for (UINT i : std::views::iota(0, SWAP_CHAIN_BUFFER_COUNT)) {
         ThrowIfFailed(
             SwapChain::Chain->GetBuffer(
                 i,
@@ -545,9 +503,9 @@ void OnResize()
         DX12::Device->CreateRenderTargetView(
             SwapChain::Buffers[i].Get(),
             nullptr,
-            rtvHandle);
+            rtv_handle);
 
-        rtvHandle.ptr += Descriptor::RtvSize;
+        rtv_handle.ptr += Descriptor::RtvSize;
     }
 
     //
@@ -609,7 +567,7 @@ void OnResize()
         DX12::CommandList->Close());
     ID3D12CommandList* cmdsLists[] = { DX12::CommandList.Get() };
     DX12::CommandQueue->ExecuteCommandLists(1, cmdsLists);
-    WaitForGPU();
+    FlushQueue();
 
     //
     // Update viewport
@@ -633,13 +591,11 @@ void OnResize()
 //
 // Helper functions
 //
-ID3D12Resource* CurrentBackBuffer()
-{
+ID3D12Resource* CurrentBackBuffer() {
     return SwapChain::Buffers[Frame::CurrentBackBuffer].Get();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()
-{
+D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() {
     D3D12_CPU_DESCRIPTOR_HANDLE handle =
         RenderTarget::RtvHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -648,16 +604,14 @@ D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()
     return handle;
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()
-{
+D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() {
     return RenderTarget::DsvHeap->GetCPUDescriptorHandleForHeapStart();
 }
 
 //
 // Draw
 //
-void Draw()
-{
+void Draw() {
     //
     // Reset command allocator and command list
     //
@@ -700,8 +654,7 @@ void Draw()
     //
     // Clear RTV
     //
-    float clearColor[] =
-    {
+    float clearColor[] = {
         0.1f,
         0.2f,
         0.4f,
@@ -748,9 +701,8 @@ void Draw()
         SwapChain::Chain->Present(1, 0));
     Frame::CurrentBackBuffer = (Frame::CurrentBackBuffer + 1) % SWAP_CHAIN_BUFFER_COUNT;
 
-    WaitForGPU();
+    FlushQueue();
 }
-
 
 D3D12_RESOURCE_BARRIER TransitionBarrier(
     ID3D12Resource* resource,
